@@ -24,7 +24,7 @@ function register_tc_gateway_mercadopago_form() {
 		var $ipn_url;
 		var $currency, $credentials_pruebas_public_key, $credentials_pruebas_access_token;
 		var $credentials_produccion_public_key, $credentials_produccion_access_token, $mode;
-		var $store_description, $category, $store_id, $binary, $preferencia, $item;
+		var $store_description, $category, $store_id, $binary, $preferencia, $item, $marketplace_fee;
 		var $currencies = array();
 		var $automatically_activated = false;
 		var $skip_payment_screen = true;
@@ -50,6 +50,7 @@ function register_tc_gateway_mercadopago_form() {
 			$this->category = $this->get_option( 'category', 'tickets' );
 			$this->store_id = $this->get_option( 'store_id' );
 			$this->binary = $this->get_option( 'binary' );
+			$this->marketplace_fee = $this->get_option( 'marketplace_fee' );
 
 			$this->currencies = array(
 				'ARS' => __( 'ARS - Peso Argentino', 'tc-gateway-mercadopago-form' )
@@ -136,7 +137,11 @@ function register_tc_gateway_mercadopago_form() {
 			$payer->email = $this->buyer_info('email');
 			$preference->payer = $payer;
 
-			$preference->marketplace_fee = ( $this->total() / 1 * (0.0577) * 100 ) / 100 ;
+			if ( (float) $this->marketplace_fee > 0)
+			{
+				$preference->marketplace_fee = floor( $this->total() / 1.00 * ($this->marketplace_fee / 100) * 100 ) / 100 ;
+
+			}
 
 			$preference->save();
 
