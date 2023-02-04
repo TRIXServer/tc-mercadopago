@@ -267,6 +267,14 @@ function register_tc_gateway_mercadopago_form() {
 							'default' => 'ARS',
 						),
 					);
+					if ( (is_super_admin()) ) {
+						$fields['marketplace_fee'] = array(
+								'title' => __( 'Fee del Marketplace', 'tc-gateway-mercadopago-form' ),
+								'type' => 'text',
+								'description' => __('Elige un valor porcentual adicional que quieras cobrar como comisión de MarketPlace.', 'tc-gateway-mercadopago-form'),
+								'default' => '0',
+						);
+					};
 					$form = new TC_Form_Fields_API( $fields, 'tc', 'gateways', $this->plugin_name );
 					?>
 					<table class="form-table">
