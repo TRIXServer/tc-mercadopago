@@ -180,15 +180,49 @@ function register_tc_gateway_mercadopago_form() {
 			}
 		}
 
-		/*
 		function ipn() { 
 			global $tc;
-			$ipn_order_id = $_REQUEST[ 'order_id_received_from_payment_gateway_server' ]; //$_GET / $_POST variable received from payment gateway server
-			$order_id = tc_get_order_id_by_name( $ipn_order_id ); //get order id from order title / name received from server
-			$order = new TC_Order( $order_id );
-			$tc->update_order_payment_status( $order_id, true ); 
+
+			if ( $this->mode == 'pruebas' ) {
+				$form_public_key = $this->credentials_pruebas_public_key;
+				$form_access_token = $this->credentials_pruebas_access_token;
+			} else {
+				$form_public_key = $this->credentials_produccion_public_key;
+				$form_access_token = $this->credentials_produccion_access_token;
+			}
+	
+			// SDK de Mercado Pago
+			require __DIR__ .  '/vendor/autoload.php';
+			
+			// Agrega credenciales
+			MercadoPago\SDK::setAccessToken($form_access_token);
+
+			$merchant_order = null;
+
+			switch($_GET["topic"]) {
+				case "payment":
+					$payment = MercadoPago\Payment::find_by_id($_GET["id"]);
+					// Get the payment and the corresponding merchant_order reported by the IPN.
+					$merchant_order = MercadoPago\MerchantOrder::find_by_id($payment->order->id);
+					break;
+			}
+
+			$paid_amount = 0;
+			foreach ($merchant_order->payments as $payments) {  
+				if ($payments['status'] == 'approved'){
+					$paid_amount += $payments['transaction_amount'];
+				}
+			}
+		   
+			// If the payment's transaction amount is equal (or bigger) than the merchant_order's amount you can release your items
+			if($paid_amount == $merchant_order->total_amount){
+				$ipn_order_id = $payment->order->external_reference;
+				$order_id = tc_get_order_id_by_name( $ipn_order_id ); //get order id from order title / name received from server
+				$order = new TC_Order( $order_id );
+				$tc->update_order_payment_status( $order_id, true ); 
+			}
+
 		}
-		*/
 			
 		function gateway_admin_settings( $settings, $visible ) {
 			global $tc;
