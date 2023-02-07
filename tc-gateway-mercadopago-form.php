@@ -122,7 +122,9 @@ function register_tc_gateway_mercadopago_form() {
 
 			$preference->auto_return = "approved";
 			$preference->notification_url = $this->ipn_url;
-			
+
+			// https://entorno.mientradadigital.com/tickets-ipn-payment/?payment_gateway_return=mercadopago_form
+
 			$preference->payment_methods = array(
 				"excluded_payment_types" => array(
 					array("id" => "ticket")
@@ -165,19 +167,36 @@ function register_tc_gateway_mercadopago_form() {
 		
 		function order_confirmation( $order, $payment_info = '', $cart_info = '' ) {
 			global $tc;
+
+			$order = tc_get_order_id_by_name( $order );
+			$paid = false;
+			$order_status = 'order_received';
 			
-			if ( isset( $_GET[ 'status' ] ) && ($_GET[ 'status' ] == 'approved' ) ) {
-				$paid = true;
-				$order = tc_get_order_id_by_name( $order );
-				$tc->update_order_payment_status( $order->ID, true );
+			if ( isset( $_GET[ 'status' ] )) {
+				switch($_GET[ 'status' ]) {
+					case 'approved':
+						$paid = true;
+						$order_status = 'order_paid';
+						break;
+					case 'pending':
+						$paid = false;
+						$order_status = 'order_received';
+						break;
+					case 'cancelled':
+						$paid = false;
+						$order_status = 'order_cancelled';
+						break;
+					case 'refunded':
+						$paid = false;
+						$order_status = 'order_refunded';
+						break;					
+
+				}
 
 			}
-			else {
-				$paid = false;
-				$order = tc_get_order_id_by_name( $order );
-				$tc->update_order_payment_status( $order->ID, false);
-				$tc->update_order_status( $order->ID, 'order_cancelled');
-			}
+			$tc->update_order_payment_status( $order->ID, $paid );
+			$tc->update_order_status( $order->ID, $order_status);
+
 		}
 
 		function ipn() { 
@@ -186,7 +205,8 @@ function register_tc_gateway_mercadopago_form() {
 			if ( $this->mode == 'pruebas' ) {
 				$form_public_key = $this->credentials_pruebas_public_key;
 				$form_access_token = $this->credentials_pruebas_access_token;
-			} else {
+			}
+			else {
 				$form_public_key = $this->credentials_produccion_public_key;
 				$form_access_token = $this->credentials_produccion_access_token;
 			}
@@ -198,6 +218,7 @@ function register_tc_gateway_mercadopago_form() {
 			MercadoPago\SDK::setAccessToken($form_access_token);
 
 			$merchant_order = null;
+			$order_status = 'order_cancelled';
 
 			switch($_GET["topic"]) {
 				case "payment":
@@ -209,18 +230,17 @@ function register_tc_gateway_mercadopago_form() {
 
 			$paid_amount = 0;
 			foreach ($merchant_order->payments as $payments) {  
-				if ($payments['status'] == 'approved'){
+				if ($payments['status'] == 'approved') {
+					$order_status = 'order_paid';
 					$paid_amount += $payments['transaction_amount'];
 				}
 			}
 		   
-			// If the payment's transaction amount is equal (or bigger) than the merchant_order's amount you can release your items
-			if($paid_amount == $merchant_order->total_amount){
-				$ipn_order_id = $payment->order->external_reference;
-				$order_id = tc_get_order_id_by_name( $ipn_order_id ); //get order id from order title / name received from server
-				$order = new TC_Order( $order_id );
-				$tc->update_order_payment_status( $order_id, true ); 
-			}
+			$ipn_order_id = $payment->order->external_reference;
+			$order_id = tc_get_order_id_by_name( $ipn_order_id );
+			$order = new TC_Order( $order_id );
+			$tc->update_order_payment_status( $order_id, $paid_amount == $merchant_order->total_amount );
+			$tc->update_order_status( $order->ID, $order_status);
 
 		}
 			
