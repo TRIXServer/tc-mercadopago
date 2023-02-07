@@ -24,7 +24,7 @@ function register_tc_gateway_mercadopago_form() {
 		var $ipn_url;
 		var $currency, $credentials_pruebas_public_key, $credentials_pruebas_access_token;
 		var $credentials_produccion_public_key, $credentials_produccion_access_token, $mode;
-		var $store_description, $category, $store_id, $binary, $preferencia, $item, $marketplace_fee;
+		var $store_description, $category, $store_id, $binary, $preferencia, $item, $marketplace_fee, $comision_gateway;
 		var $currencies = array();
 		var $automatically_activated = false;
 		var $skip_payment_screen = true;
@@ -50,6 +50,7 @@ function register_tc_gateway_mercadopago_form() {
 			$this->category = $this->get_option( 'category', 'tickets' );
 			$this->store_id = $this->get_option( 'store_id' );
 			$this->binary = $this->get_option( 'binary' );
+			$this->comision_gateway = $this->get_option( 'comision_gateway' );
 			$this->marketplace_fee = $this->get_option( 'marketplace_fee' );
 
 			$this->currencies = array(
@@ -106,9 +107,11 @@ function register_tc_gateway_mercadopago_form() {
 			
 			// Crea un ítem en la preferencia
 			$item = new MercadoPago\Item();
+            $item->id = $order_id;
 			$item->title = $this->store_id . $order_id ;
 			$item->quantity = 1;
-			$item->unit_price = $this->total();
+			$item->unit_price = ($this->total()) * ( 1 + ($this->comision_gateway / 100));
+
 			$preference->items = array($item);
 			
 			$preference->back_urls = array(
@@ -151,12 +154,12 @@ function register_tc_gateway_mercadopago_form() {
 				
 			header( 'Content-Type: text/html' );
 			?>
-			<script>
-				function redirect() {
-    				location.href = "<?php echo $preference->init_point; ?>";
-				}
-				addEventListener('load', redirect);
-			</script>
+				<script>
+					function redirect() {
+						location.href = "<?php echo $preference->init_point; ?>";
+					}
+					addEventListener('load', redirect);
+				</script>
             <?php
 		}
 		
@@ -203,6 +206,7 @@ function register_tc_gateway_mercadopago_form() {
             	</h3>     			
 				<div class="inside">
 					<?php
+					if ( (is_super_admin()) ) {
 					$fields = array(
 						'mode' => array(
 							'title' => __( 'Modo', 'tc-gateway-mercadopago-form' ),
@@ -272,7 +276,6 @@ function register_tc_gateway_mercadopago_form() {
 							'default' => 'ARS',
 						),
 					);
-					if ( (is_super_admin()) ) {
 						$fields['marketplace_fee'] = array(
 								'title' => __( 'Fee del Marketplace', 'tc-gateway-mercadopago-form' ),
 								'type' => 'text',
